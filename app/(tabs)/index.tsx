@@ -1,98 +1,141 @@
-import { Image } from 'expo-image';
-import { Platform, StyleSheet } from 'react-native';
-
-import { HelloWave } from '@/components/hello-wave';
-import ParallaxScrollView from '@/components/parallax-scroll-view';
-import { ThemedText } from '@/components/themed-text';
-import { ThemedView } from '@/components/themed-view';
-import { Link } from 'expo-router';
+import React, { useState, useRef, useEffect } from 'react';
+import { StyleSheet, Text, View, TouchableOpacity, Image, Alert, ActivityIndicator } from 'react-native';
+import { CameraView, useCameraPermissions } from 'expo-camera';
+import * as Location from 'expo-location';
+import * as FileSystem from 'expo-file-system';
+import * as MediaLibrary from 'expo-media-library';
 
 export default function HomeScreen() {
-  return (
-    <ParallaxScrollView
-      headerBackgroundColor={{ light: '#A1CEDC', dark: '#1D3D47' }}
-      headerImage={
-        <Image
-          source={require('@/assets/images/partial-react-logo.png')}
-          style={styles.reactLogo}
-        />
-      }>
-      <ThemedView style={styles.titleContainer}>
-        <ThemedText type="title">Welcome!</ThemedText>
-        <HelloWave />
-      </ThemedView>
-      <ThemedView style={styles.stepContainer}>
-        <ThemedText type="subtitle">Step 1: Try it</ThemedText>
-        <ThemedText>
-          Edit <ThemedText type="defaultSemiBold">app/(tabs)/index.tsx</ThemedText> to see changes.
-          Press{' '}
-          <ThemedText type="defaultSemiBold">
-            {Platform.select({
-              ios: 'cmd + d',
-              android: 'cmd + m',
-              web: 'F12',
-            })}
-          </ThemedText>{' '}
-          to open developer tools.
-        </ThemedText>
-      </ThemedView>
-      <ThemedView style={styles.stepContainer}>
-        <Link href="/modal">
-          <Link.Trigger>
-            <ThemedText type="subtitle">Step 2: Explore</ThemedText>
-          </Link.Trigger>
-          <Link.Preview />
-          <Link.Menu>
-            <Link.MenuAction title="Action" icon="cube" onPress={() => alert('Action pressed')} />
-            <Link.MenuAction
-              title="Share"
-              icon="square.and.arrow.up"
-              onPress={() => alert('Share pressed')}
-            />
-            <Link.Menu title="More" icon="ellipsis">
-              <Link.MenuAction
-                title="Delete"
-                icon="trash"
-                destructive
-                onPress={() => alert('Delete pressed')}
-              />
-            </Link.Menu>
-          </Link.Menu>
-        </Link>
+  const [cameraPermission, requestCameraPermission] = useCameraPermissions();
+  const [mediaPermission, requestMediaPermission] = MediaLibrary.usePermissions();
+  const [location, setLocation] = useState<Location.LocationObjectCoords | null>(null);
+  const [photoUri, setPhotoUri] = useState<string | null>(null);
+  const [isSaving, setIsSaving] = useState(false);
+  const cameraRef = useRef<any>(null);
 
-        <ThemedText>
-          {`Tap the Explore tab to learn more about what's included in this starter app.`}
-        </ThemedText>
-      </ThemedView>
-      <ThemedView style={styles.stepContainer}>
-        <ThemedText type="subtitle">Step 3: Get a fresh start</ThemedText>
-        <ThemedText>
-          {`When you're ready, run `}
-          <ThemedText type="defaultSemiBold">npm run reset-project</ThemedText> to get a fresh{' '}
-          <ThemedText type="defaultSemiBold">app</ThemedText> directory. This will move the current{' '}
-          <ThemedText type="defaultSemiBold">app</ThemedText> to{' '}
-          <ThemedText type="defaultSemiBold">app-example</ThemedText>.
-        </ThemedText>
-      </ThemedView>
-    </ParallaxScrollView>
+  useEffect(() => {
+    (async () => {
+      // Minta izin lokasi
+      let { status: locStatus } = await Location.requestForegroundPermissionsAsync();
+      if (locStatus !== 'granted') {
+        Alert.alert("Izin Ditolak", "Aplikasi butuh akses lokasi untuk absen.");
+      }
+      // Minta izin gallery
+      if (!mediaPermission || mediaPermission.status !== 'granted') {
+        await requestMediaPermission();
+      }
+    })();
+  }, [mediaPermission]);
+
+  const handleCapture = async () => {
+    if (cameraRef.current) {
+      try {
+        const photo = await cameraRef.current.takePictureAsync({ quality: 0.5 });
+        setPhotoUri(photo.uri);
+        
+        const loc = await Location.getCurrentPositionAsync({});
+        setLocation(loc.coords);
+      } catch (err) {
+        Alert.alert("Error", "Gagal mengambil gambar.");
+      }
+    }
+  };
+
+  const handleSaveToGallery = async () => {
+    if (!photoUri || !location) return;
+
+    setIsSaving(true);
+    try {
+      // 1. Pastikan izin gallery diberikan
+      const { status } = await MediaLibrary.requestPermissionsAsync();
+      if (status !== 'granted') {
+        throw new Error("Izin menyimpan ke gallery ditolak.");
+      }
+
+      // 2. Simpan foto ke Gallery (Folder DCIM/Camera)
+      // MediaLibrary akan otomatis mengurus lokasi penyimpanan yang tepat di Android
+      const asset = await MediaLibrary.createAssetAsync(photoUri);
+      
+      // 3. (Opsional) Masukkan ke album spesifik bernama "HadirIn"
+      const albumName = 'HadirIn_Absen';
+      const album = await MediaLibrary.getAlbumAsync(albumName);
+      if (album === null) {
+        await MediaLibrary.createAlbumAsync(albumName, asset, false);
+      } else {
+        await MediaLibrary.addAssetsToAlbumAsync([asset], album, false);
+      }
+
+      Alert.alert(
+        "Berhasil!", 
+        `Foto absen tersimpan di Gallery.\nLokasi: ${location.latitude.toFixed(5)}, ${location.longitude.toFixed(5)}`
+      );
+      setPhotoUri(null);
+    } catch (error: any) {
+      Alert.alert("Gagal Simpan", error.message);
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  if (!cameraPermission) return <View />;
+  if (!cameraPermission.granted) {
+    return (
+      <View style={styles.center}>
+        <Text style={{ textAlign: 'center', marginBottom: 10 }}>Izin kamera diperlukan</Text>
+        <TouchableOpacity style={styles.btnPrimary} onPress={requestCameraPermission}>
+          <Text style={{ color: 'white' }}>Beri Izin</Text>
+        </TouchableOpacity>
+      </View>
+    );
+  }
+
+  return (
+    <View style={styles.container}>
+      {!photoUri ? (
+        <CameraView style={styles.camera} ref={cameraRef}>
+          <View style={styles.overlay}>
+            <TouchableOpacity style={styles.captureBtn} onPress={handleCapture}>
+              <View style={styles.captureInternal} />
+            </TouchableOpacity>
+          </View>
+        </CameraView>
+      ) : (
+        <View style={styles.previewContainer}>
+          <Image source={{ uri: photoUri }} style={styles.previewImg} />
+          <Text style={styles.locationTxt}>
+            📍 Lokasi: {location?.latitude.toFixed(5)}, {location?.longitude.toFixed(5)}
+          </Text>
+          
+          {isSaving ? (
+            <ActivityIndicator size="large" color="#34A853" />
+          ) : (
+            <>
+              <TouchableOpacity style={styles.btnSave} onPress={handleSaveToGallery}>
+                <Text style={styles.btnText}>Simpan ke Gallery HP</Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity onPress={() => setPhotoUri(null)}>
+                <Text style={{ color: 'red', marginTop: 15 }}>Batal / Foto Ulang</Text>
+              </TouchableOpacity>
+            </>
+          )}
+        </View>
+      )}
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
-  titleContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-  },
-  stepContainer: {
-    gap: 8,
-    marginBottom: 8,
-  },
-  reactLogo: {
-    height: 178,
-    width: 290,
-    bottom: 0,
-    left: 0,
-    position: 'absolute',
-  },
+  container: { flex: 1, backgroundColor: '#000' },
+  center: { flex: 1, justifyContent: 'center', alignItems: 'center' },
+  camera: { flex: 1 },
+  overlay: { flex: 1, backgroundColor: 'transparent', justifyContent: 'flex-end', alignItems: 'center', marginBottom: 40 },
+  captureBtn: { width: 70, height: 70, borderRadius: 35, borderWidth: 5, borderColor: 'white', justifyContent: 'center', alignItems: 'center' },
+  captureInternal: { width: 50, height: 50, borderRadius: 25, backgroundColor: 'white' },
+  previewContainer: { flex: 1, backgroundColor: '#f5f5f5', alignItems: 'center', justifyContent: 'center', padding: 20 },
+  previewImg: { width: '100%', height: '55%', borderRadius: 15, marginBottom: 15, backgroundColor: '#ddd' },
+  locationTxt: { fontSize: 16, fontWeight: 'bold', marginBottom: 25, color: '#333' },
+  btnPrimary: { backgroundColor: '#000', padding: 15, borderRadius: 10, width: 200, alignItems: 'center' },
+  btnSave: { backgroundColor: '#34A853', padding: 18, borderRadius: 12, width: '100%', alignItems: 'center', elevation: 3 },
+  btnText: { color: 'white', fontWeight: 'bold', fontSize: 16 },
 });
