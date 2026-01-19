@@ -4,19 +4,74 @@ import { StatusBar } from 'expo-status-bar';
 import 'react-native-reanimated';
 
 import { useColorScheme } from '@/hooks/use-color-scheme';
+import { BrandColors, NeutralColors } from '@/constants/theme';
+
+// Custom theme yang sesuai dengan branding Hadir-In
+const HadirInLightTheme = {
+  ...DefaultTheme,
+  colors: {
+    ...DefaultTheme.colors,
+    primary: BrandColors.navy,
+    background: NeutralColors.white,
+    card: NeutralColors.white,
+    text: NeutralColors.slate900,
+    border: NeutralColors.slate200,
+    notification: BrandColors.cyan,
+  },
+};
+
+const HadirInDarkTheme = {
+  ...DarkTheme,
+  colors: {
+    ...DarkTheme.colors,
+    primary: BrandColors.cyan,
+    background: NeutralColors.slate900,
+    card: NeutralColors.slate800,
+    text: NeutralColors.slate50,
+    border: NeutralColors.slate700,
+    notification: BrandColors.cyan,
+  },
+};
 
 export const unstable_settings = {
-  anchor: '(tabs)',
+  initialRouteName: 'login',
 };
 
 export default function RootLayout() {
   const colorScheme = useColorScheme();
 
   return (
-    <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
-      <Stack>
-        <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
-        <Stack.Screen name="modal" options={{ presentation: 'modal', title: 'Modal' }} />
+    <ThemeProvider value={colorScheme === 'dark' ? HadirInDarkTheme : HadirInLightTheme}>
+      <Stack screenOptions={{ headerShown: false }}>
+        <Stack.Screen 
+          name="login" 
+          options={{ 
+            headerShown: false,
+            animation: 'fade',
+          }} 
+        />
+        <Stack.Screen 
+          name="home" 
+          options={{ 
+            headerShown: false,
+            animation: 'slide_from_right',
+          }} 
+        />
+        <Stack.Screen 
+          name="(tabs)" 
+          options={{ 
+            headerShown: false,
+            animation: 'slide_from_right',
+          }} 
+        />
+        <Stack.Screen 
+          name="modal" 
+          options={{ 
+            presentation: 'modal', 
+            title: 'Modal',
+            headerShown: true,
+          }} 
+        />
       </Stack>
       <StatusBar style="auto" />
     </ThemeProvider>
