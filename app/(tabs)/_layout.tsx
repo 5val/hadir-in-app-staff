@@ -1,6 +1,7 @@
 import { Tabs } from "expo-router";
 import React from "react";
 import { Platform } from "react-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { HapticTab } from "@/components/haptic-tab";
 import { Colors } from "@/constants/theme";
@@ -10,6 +11,7 @@ import { Ionicons } from "@expo/vector-icons";
 export default function TabLayout() {
   const colorScheme = useColorScheme();
   const colors = Colors[colorScheme ?? "light"];
+  const insets = useSafeAreaInsets();
 
   return (
     <Tabs
@@ -22,9 +24,10 @@ export default function TabLayout() {
           backgroundColor: colors.surface,
           borderTopColor: colors.border,
           borderTopWidth: 1,
-          height: Platform.OS === "ios" ? 88 : 64,
+          // Respect device safe-area (gesture/home indicator) by adding bottom inset
+          height: (Platform.OS === "ios" ? 88 : 64) + (insets?.bottom ?? 0),
           paddingTop: 8,
-          paddingBottom: Platform.OS === "ios" ? 28 : 10,
+          paddingBottom: insets?.bottom ?? (Platform.OS === "ios" ? 28 : 10),
           elevation: 8,
           shadowColor: "#000",
           shadowOffset: { width: 0, height: -2 },

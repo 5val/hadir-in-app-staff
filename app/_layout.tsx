@@ -1,7 +1,7 @@
 import {
-   DarkTheme,
-   DefaultTheme,
-   ThemeProvider,
+    DarkTheme,
+    DefaultTheme,
+    ThemeProvider,
 } from "@react-navigation/native";
 import { Stack } from "expo-router";
 import { StatusBar } from "expo-status-bar";
@@ -58,13 +58,7 @@ export default function RootLayout() {
               animation: "fade",
             }}
           />
-          <Stack.Screen
-            name="home"
-            options={{
-              headerShown: false,
-              animation: "slide_from_right",
-            }}
-          />
+          {/* removed unused 'home' route; use (tabs) and login routes only */}
           <Stack.Screen
             name="(tabs)"
             options={{

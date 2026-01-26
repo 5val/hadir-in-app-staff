@@ -9,16 +9,16 @@ import { useLocalSearchParams, useRouter } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import React, { useEffect, useRef, useState } from "react";
 import {
-   ActivityIndicator,
-   Alert,
-   Dimensions,
-   Image,
-   Platform,
-   ScrollView,
-   StyleSheet,
-   Text,
-   TouchableOpacity,
-   View,
+  ActivityIndicator,
+  Alert,
+  Dimensions,
+  Image,
+  Platform,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View,
 } from "react-native";
 
 const { width } = Dimensions.get("window");
@@ -270,6 +270,24 @@ export default function AttendanceScreen() {
 
   // Photo preview screen
   if (photoUri) {
+    // Calculate distance from current location to office location
+    const targetLat = parseFloat(officeLocation.lat as string);
+    const targetLng = parseFloat(officeLocation.lng as string);
+    const targetRadius = parseFloat(officeLocation.radius as string);
+
+    let distance = 0;
+    let isWithinRadius = false;
+
+    if (location && !isNaN(targetLat) && !isNaN(targetLng) && !isNaN(targetRadius)) {
+      distance = calculateDistance(
+        location.latitude,
+        location.longitude,
+        targetLat,
+        targetLng,
+      );
+      isWithinRadius = distance <= targetRadius;
+    }
+
     return (
       <View style={styles.previewContainer}>
         <StatusBar style="dark" />
@@ -349,6 +367,40 @@ export default function AttendanceScreen() {
             </View>
           </View>
 
+          {/* Radius Status Card */}
+          <View style={[
+            styles.radiusStatusCard,
+            { backgroundColor: isWithinRadius ? SemanticColors.successBg : SemanticColors.errorBg }
+          ]}>
+            <View style={styles.radiusStatusHeader}>
+              <Ionicons
+                name={isWithinRadius ? "checkmark-circle" : "close-circle"}
+                size={24}
+                color={isWithinRadius ? SemanticColors.success : SemanticColors.error}
+              />
+              <Text style={[
+                styles.radiusStatusTitle,
+                { color: isWithinRadius ? SemanticColors.success : SemanticColors.error }
+              ]}>
+                {isWithinRadius ? "Dalam Radius Absen" : "Di Luar Radius Absen"}
+              </Text>
+            </View>
+            <Text style={[
+              styles.radiusStatusText,
+              { color: isWithinRadius ? SemanticColors.success : SemanticColors.error }
+            ]}>
+              {isWithinRadius
+                ? `Anda berjarak ${Math.round(distance)} meter dari titik absen.`
+                : `Anda berjarak ${Math.round(distance)} meter dari titik absen. Maksimal radius: ${targetRadius} meter.`
+              }
+            </Text>
+            {!isWithinRadius && (
+              <Text style={styles.radiusStatusHint}>
+                Silakan foto ulang di lokasi yang sesuai.
+              </Text>
+            )}
+          </View>
+
           {/* Action Buttons */}
           <View style={styles.actionButtons}>
             {isSaving ? (
@@ -371,18 +423,22 @@ export default function AttendanceScreen() {
                   <Text style={styles.retakeButtonText}>Foto Ulang</Text>
                 </TouchableOpacity>
 
-                <TouchableOpacity
-                  onPress={handleSaveAttendance}
-                  activeOpacity={0.8}
-                >
-                  <LinearGradient
-                    colors={[SemanticColors.success, "#16A34A"]}
-                    style={styles.confirmButton}
+                {isWithinRadius && (
+                  <TouchableOpacity
+                    activeOpacity={0.8}
+                    onPress={() => {
+                      // Tombol tidak melakukan apa-apa (placeholder)
+                    }}
                   >
-                    <Ionicons name="checkmark-circle" size={20} color="white" />
-                    <Text style={styles.confirmButtonText}>Simpan Absensi</Text>
-                  </LinearGradient>
-                </TouchableOpacity>
+                    <LinearGradient
+                      colors={[SemanticColors.success, "#16A34A"]}
+                      style={styles.confirmButton}
+                    >
+                      <Ionicons name="checkmark-circle" size={20} color="white" />
+                      <Text style={styles.confirmButtonText}>Simpan Absensi</Text>
+                    </LinearGradient>
+                  </TouchableOpacity>
+                )}
               </>
             )}
           </View>
@@ -740,5 +796,32 @@ const styles = StyleSheet.create({
   },
   scrollContent: {
     paddingBottom: 40,
+  },
+  // Radius Status Card Styles
+  radiusStatusCard: {
+    marginHorizontal: 20,
+    marginTop: 16,
+    borderRadius: 16,
+    padding: 16,
+  },
+  radiusStatusHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 10,
+    marginBottom: 8,
+  },
+  radiusStatusTitle: {
+    fontSize: 16,
+    fontWeight: "700",
+  },
+  radiusStatusText: {
+    fontSize: 14,
+    lineHeight: 20,
+  },
+  radiusStatusHint: {
+    fontSize: 13,
+    color: NeutralColors.slate600,
+    marginTop: 8,
+    fontStyle: "italic",
   },
 });

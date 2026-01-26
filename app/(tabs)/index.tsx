@@ -1,23 +1,33 @@
+import { GOOGLE_MAPS_API_KEY } from "@/constants/google";
 import { BrandColors, NeutralColors, SemanticColors } from "@/constants/theme";
 import { useOffice } from "@/context/OfficeContext";
 import { Ionicons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
+import * as Location from "expo-location";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import React, { useEffect, useRef, useState } from "react";
 import {
-   Alert,
-   Animated,
-   Dimensions,
-   Platform,
-   RefreshControl,
-   ScrollView,
-   StyleSheet,
-   Text,
-   TextInput,
-   TouchableOpacity,
-   View,
+  ActivityIndicator,
+  Alert,
+  Animated,
+  Dimensions,
+  FlatList,
+  Modal,
+  NativeModules,
+  Platform,
+  RefreshControl,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  View,
 } from "react-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
+// react-native-maps is a native module and will crash in plain Expo Go if
+// imported at module load. We'll require it dynamically when needed and
+// fallback to a friendly message when it's unavailable.
 
 const { width } = Dimensions.get("window");
 
@@ -44,6 +54,21 @@ export default function HomeScreen() {
   //     radius: "100",
   //   });
   const { officeLocation, setOfficeLocation } = useOffice();
+  const insets = useSafeAreaInsets();
+
+  // Map / search states for dummy location picker
+  const [mapVisible, setMapVisible] = useState(false);
+  const [searchQuery, setSearchQuery] = useState("");
+  const [predictions, setPredictions] = useState<any[]>([]);
+  const [loadingPredictions, setLoadingPredictions] = useState(false);
+  const [markerCoord, setMarkerCoord] = useState<{
+    lat: number;
+    lng: number;
+  } | null>(
+    officeLocation?.lat && officeLocation?.lng
+      ? { lat: Number(officeLocation.lat), lng: Number(officeLocation.lng) }
+      : null,
+  );
 
   // State untuk status absen (null = belum absen, object = sudah absen)
   const [attendanceData, setAttendanceData] = useState<any>(null);
@@ -102,6 +127,31 @@ export default function HomeScreen() {
     return () => clearInterval(timer);
   }, []);
 
+  // Request location permission when Home screen mounts (first open after login)
+  useEffect(() => {
+    (async () => {
+      try {
+        const { status } = await Location.requestForegroundPermissionsAsync();
+        if (status !== "granted") {
+          Alert.alert(
+            "Izin Lokasi Dibutuhkan",
+            "Aplikasi membutuhkan akses lokasi. Mohon aktifkan layanan lokasi pada perangkat Anda.",
+            [{ text: "OK" }],
+          );
+        } else {
+          // Warm up: get current position (optional)
+          try {
+            await Location.getCurrentPositionAsync({});
+          } catch (e) {
+            // ignore get position errors
+          }
+        }
+      } catch (e) {
+        console.warn("Location permission error:", e);
+      }
+    })();
+  }, []);
+
   useEffect(() => {
     if (params.status === "success" && params.ts !== attendanceData?.ts) {
       setAttendanceData({
@@ -120,6 +170,89 @@ export default function HomeScreen() {
     setRefreshing(true);
     await new Promise((resolve) => setTimeout(resolve, 1500));
     setRefreshing(false);
+  };
+
+  // Fetch autocomplete predictions from Google Places Autocomplete API
+  const fetchPredictions = async (input: string) => {
+    if (!GOOGLE_MAPS_API_KEY) {
+      setPredictions([]);
+      return;
+    }
+    if (!input || input.length < 2) {
+      setPredictions([]);
+      return;
+    }
+    setLoadingPredictions(true);
+    try {
+      const url = `https://maps.googleapis.com/maps/api/place/autocomplete/json?input=${encodeURIComponent(
+        input,
+      )}&key=${GOOGLE_MAPS_API_KEY}&language=id&components=country:id`;
+      const res = await fetch(url);
+      const json = await res.json();
+      setPredictions(json.predictions || []);
+    } catch (e) {
+      console.warn("Places autocomplete error", e);
+      setPredictions([]);
+    } finally {
+      setLoadingPredictions(false);
+    }
+  };
+
+  // When user selects a prediction, fetch place details to get coords
+  const selectPrediction = async (placeId: string, description: string) => {
+    if (!GOOGLE_MAPS_API_KEY) {
+      Alert.alert(
+        "Google API Key Missing",
+        "Silakan set `GOOGLE_MAPS_API_KEY` di `constants/google.ts` untuk mengaktifkan pencarian.",
+      );
+      return;
+    }
+    try {
+      const url = `https://maps.googleapis.com/maps/api/place/details/json?place_id=${placeId}&key=${GOOGLE_MAPS_API_KEY}&fields=geometry,name,formatted_address`;
+      const res = await fetch(url);
+      const json = await res.json();
+      const loc = json.result?.geometry?.location;
+      if (loc) {
+        const lat = loc.lat;
+        const lng = loc.lng;
+        setMarkerCoord({ lat, lng });
+        setOfficeLocation({
+          lat: String(lat),
+          lng: String(lng),
+          radius: officeLocation.radius,
+        });
+        setSearchQuery(description);
+        setPredictions([]);
+      } else {
+        Alert.alert("Tidak dapat mendapatkan lokasi");
+      }
+    } catch (e) {
+      console.warn("Place details error", e);
+      Alert.alert("Terjadi kesalahan saat mengambil detail tempat");
+    }
+  };
+
+  const onMapPress = (e: any) => {
+    const { latitude, longitude } = e.nativeEvent.coordinate;
+    setMarkerCoord({ lat: latitude, lng: longitude });
+    setOfficeLocation({
+      lat: String(latitude),
+      lng: String(longitude),
+      radius: officeLocation.radius,
+    });
+  };
+
+  // Helper to check whether react-native-maps native module is available.
+  // Do NOT require('react-native-maps') here because that JS file will attempt
+  // to access the native TurboModule at module-load time and crash in Expo Go.
+  // Instead check NativeModules for the native implementation.
+  const isMapsAvailable = () => {
+    try {
+      const nm: any = NativeModules;
+      return !!(nm && (nm.RNMapsAirModule || nm.AirMapManager || nm.AirMaps));
+    } catch (e) {
+      return false;
+    }
   };
 
   const getStatusBadge = (status: string) => {
@@ -376,19 +509,19 @@ export default function HomeScreen() {
                   label: "Izin",
                   icon: "document-text",
                   color: SemanticColors.warning,
-                  action: () => {},
+                  action: () => { },
                 },
                 {
                   label: "Cuti",
                   icon: "calendar",
                   color: SemanticColors.info,
-                  action: () => {},
+                  action: () => { },
                 },
                 {
                   label: "Riwayat",
                   icon: "time",
                   color: BrandColors.lime,
-                  action: () => {},
+                  action: () => { },
                 },
               ].map((item, i) => (
                 <TouchableOpacity
@@ -463,7 +596,7 @@ export default function HomeScreen() {
                     style={[
                       styles.historyItem,
                       index !== mockAttendanceHistory.length - 1 &&
-                        styles.historyItemBorder,
+                      styles.historyItemBorder,
                     ]}
                   >
                     <View style={styles.historyLeft}>
@@ -586,6 +719,209 @@ export default function HomeScreen() {
               <Ionicons name="save-outline" size={16} color="white" />
               <Text style={styles.applyDummyText}>Terapkan Parameter</Text>
             </TouchableOpacity>
+
+            <View style={{ height: 10 }} />
+            <TouchableOpacity
+              style={[
+                styles.applyDummyBtn,
+                { backgroundColor: BrandColors.cyan },
+              ]}
+              onPress={() => setMapVisible(true)}
+            >
+              <Ionicons name="map" size={16} color="white" />
+              <Text style={styles.applyDummyText}>Buka Peta / Cari Lokasi</Text>
+            </TouchableOpacity>
+
+            {/* Map Modal for search + pin */}
+            <Modal
+              visible={mapVisible}
+              animationType="slide"
+              onRequestClose={() => setMapVisible(false)}
+            >
+              <View style={styles.mapModalContainer}>
+                {/* Header with SafeArea padding */}
+                <LinearGradient
+                  colors={[BrandColors.navy, BrandColors.navyDark]}
+                  style={[styles.mapModalHeader, { paddingTop: insets.top + 12 }]}
+                >
+                  <View style={styles.mapModalHeaderRow}>
+                    <View style={styles.mapModalSearchContainer}>
+                      <Ionicons name="search" size={18} color={NeutralColors.slate400} style={{ marginRight: 8 }} />
+                      <TextInput
+                        placeholder="Cari tempat atau alamat..."
+                        placeholderTextColor={NeutralColors.slate400}
+                        value={searchQuery}
+                        onChangeText={(t) => {
+                          setSearchQuery(t);
+                          fetchPredictions(t);
+                        }}
+                        style={styles.mapModalSearchInput}
+                      />
+                      {searchQuery.length > 0 && (
+                        <TouchableOpacity onPress={() => { setSearchQuery(""); setPredictions([]); }}>
+                          <Ionicons name="close-circle" size={18} color={NeutralColors.slate400} />
+                        </TouchableOpacity>
+                      )}
+                    </View>
+                    <TouchableOpacity
+                      onPress={() => setMapVisible(false)}
+                      style={styles.mapModalCloseBtn}
+                    >
+                      <Text style={styles.mapModalCloseBtnText}>Tutup</Text>
+                    </TouchableOpacity>
+                  </View>
+                </LinearGradient>
+
+                {/* Loading Predictions */}
+                {loadingPredictions && (
+                  <View style={styles.mapModalLoadingPredictions}>
+                    <ActivityIndicator size="small" color={BrandColors.navy} />
+                  </View>
+                )}
+
+                {/* Predictions List */}
+                {predictions.length > 0 && (
+                  <View style={styles.mapModalPredictionsContainer}>
+                    <FlatList
+                      data={predictions}
+                      keyExtractor={(i) => i.place_id}
+                      showsVerticalScrollIndicator={false}
+                      renderItem={({ item }) => (
+                        <TouchableOpacity
+                          style={styles.mapModalPredictionItem}
+                          onPress={() =>
+                            selectPrediction(item.place_id, item.description)
+                          }
+                        >
+                          <Ionicons name="location-outline" size={18} color={BrandColors.navy} style={{ marginRight: 12 }} />
+                          <View style={{ flex: 1 }}>
+                            <Text style={styles.mapModalPredictionMainText}>
+                              {item.structured_formatting?.main_text}
+                            </Text>
+                            <Text style={styles.mapModalPredictionSecondaryText} numberOfLines={1}>
+                              {item.description}
+                            </Text>
+                          </View>
+                        </TouchableOpacity>
+                      )}
+                    />
+                  </View>
+                )}
+
+                {/* Map View */}
+                <View style={{ flex: 1 }}>
+                  {isMapsAvailable() ? (
+                    (() => {
+                      try {
+                        const RNMaps: any = require("react-native-maps");
+                        const MapView = RNMaps.default || RNMaps;
+                        const { Marker, PROVIDER_GOOGLE } = RNMaps;
+                        return (
+                          <MapView
+                            provider={PROVIDER_GOOGLE}
+                            style={{ flex: 1 }}
+                            initialRegion={{
+                              latitude:
+                                markerCoord?.lat ??
+                                Number(officeLocation.lat) ??
+                                -6.2,
+                              longitude:
+                                markerCoord?.lng ??
+                                Number(officeLocation.lng) ??
+                                106.8,
+                              latitudeDelta: 0.01,
+                              longitudeDelta: 0.01,
+                            }}
+                            onPress={onMapPress}
+                            onPoiClick={(e: any) => {
+                              const { coordinate, name } = e.nativeEvent;
+                              setMarkerCoord({ lat: coordinate.latitude, lng: coordinate.longitude });
+                              setOfficeLocation({
+                                lat: String(coordinate.latitude),
+                                lng: String(coordinate.longitude),
+                                radius: officeLocation.radius,
+                              });
+                              setSearchQuery(name || "");
+                            }}
+                          >
+                            {markerCoord && (
+                              <Marker
+                                coordinate={{
+                                  latitude: markerCoord.lat,
+                                  longitude: markerCoord.lng,
+                                }}
+                              />
+                            )}
+                          </MapView>
+                        );
+                      } catch (e) {
+                        return (
+                          <View style={styles.mapModalFallbackContainer}>
+                            <Ionicons name="map-outline" size={48} color={NeutralColors.slate400} />
+                            <Text style={styles.mapModalFallbackText}>
+                              Peta tidak tersedia di lingkungan ini.
+                            </Text>
+                            <Text style={styles.mapModalFallbackSubText}>
+                              Buatlah development build atau instal aplikasi dengan dukungan native maps.
+                            </Text>
+                          </View>
+                        );
+                      }
+                    })()
+                  ) : (
+                    <View style={styles.mapModalFallbackContainer}>
+                      <Ionicons name="map-outline" size={48} color={NeutralColors.slate400} />
+                      <Text style={styles.mapModalFallbackText}>
+                        Peta tidak tersedia di Expo Go
+                      </Text>
+                      <Text style={styles.mapModalFallbackSubText}>
+                        Buat development build (EAS) atau jalankan pada perangkat dengan modul native react-native-maps ter-install.
+                      </Text>
+                    </View>
+                  )}
+                </View>
+
+                {/* Bottom Action Buttons with SafeArea padding */}
+                <View style={[
+                  styles.mapModalFooter,
+                  { paddingBottom: insets.bottom > 0 ? insets.bottom + 16 : 24 }
+                ]}>
+                  <TouchableOpacity
+                    style={styles.mapModalApplyBtn}
+                    onPress={() => {
+                      if (markerCoord) {
+                        setOfficeLocation({
+                          lat: String(markerCoord.lat),
+                          lng: String(markerCoord.lng),
+                          radius: officeLocation.radius,
+                        });
+                      }
+                      setMapVisible(false);
+                      Alert.alert(
+                        "Lokasi Diterapkan",
+                        `Lat: ${officeLocation.lat}, Lng: ${officeLocation.lng}`,
+                      );
+                    }}
+                  >
+                    <LinearGradient
+                      colors={[BrandColors.navy, BrandColors.navyDark]}
+                      style={styles.mapModalApplyBtnGradient}
+                      start={{ x: 0, y: 0 }}
+                      end={{ x: 1, y: 0 }}
+                    >
+                      <Ionicons name="checkmark-circle" size={18} color="white" />
+                      <Text style={styles.mapModalApplyBtnText}>Terapkan Lokasi</Text>
+                    </LinearGradient>
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    style={styles.mapModalCancelBtn}
+                    onPress={() => setMapVisible(false)}
+                  >
+                    <Text style={styles.mapModalCancelBtnText}>Batal</Text>
+                  </TouchableOpacity>
+                </View>
+              </View>
+            </Modal>
           </View>
 
           <View style={{ height: 120 }} />
@@ -962,5 +1298,151 @@ const styles = StyleSheet.create({
     color: "white",
     fontSize: 13,
     fontWeight: "700",
+  },
+  // Map Modal Styles - Matching app design system
+  mapModalContainer: {
+    flex: 1,
+    backgroundColor: NeutralColors.slate50,
+  },
+  mapModalHeader: {
+    paddingBottom: 16,
+    paddingHorizontal: 20,
+  },
+  mapModalHeaderRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 12,
+  },
+  mapModalSearchContainer: {
+    flex: 1,
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: NeutralColors.white,
+    borderRadius: 12,
+    paddingHorizontal: 14,
+    height: 48,
+    borderWidth: 1,
+    borderColor: `${NeutralColors.slate200}50`,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.05,
+    shadowRadius: 4,
+    elevation: 1,
+  },
+  mapModalSearchInput: {
+    flex: 1,
+    fontSize: 15,
+    color: NeutralColors.slate900,
+    height: "100%",
+  },
+  mapModalCloseBtn: {
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+  },
+  mapModalCloseBtnText: {
+    color: NeutralColors.white,
+    fontWeight: "600",
+    fontSize: 14,
+  },
+  mapModalLoadingPredictions: {
+    padding: 12,
+    alignItems: "center",
+    backgroundColor: NeutralColors.white,
+  },
+  mapModalPredictionsContainer: {
+    maxHeight: 220,
+    backgroundColor: NeutralColors.white,
+    borderBottomWidth: 1,
+    borderBottomColor: NeutralColors.slate200,
+  },
+  mapModalPredictionItem: {
+    flexDirection: "row",
+    alignItems: "center",
+    padding: 14,
+    paddingHorizontal: 20,
+    borderBottomWidth: 1,
+    borderBottomColor: NeutralColors.slate100,
+  },
+  mapModalPredictionMainText: {
+    fontSize: 14,
+    fontWeight: "600",
+    color: NeutralColors.slate800,
+    marginBottom: 2,
+  },
+  mapModalPredictionSecondaryText: {
+    fontSize: 12,
+    color: NeutralColors.slate500,
+  },
+  mapModalFallbackContainer: {
+    flex: 1,
+    justifyContent: "center",
+    alignItems: "center",
+    padding: 32,
+    backgroundColor: NeutralColors.white,
+  },
+  mapModalFallbackText: {
+    textAlign: "center",
+    fontSize: 16,
+    fontWeight: "600",
+    color: NeutralColors.slate700,
+    marginTop: 16,
+  },
+  mapModalFallbackSubText: {
+    textAlign: "center",
+    fontSize: 13,
+    color: NeutralColors.slate500,
+    marginTop: 8,
+    lineHeight: 20,
+    paddingHorizontal: 20,
+  },
+  mapModalFooter: {
+    backgroundColor: NeutralColors.white,
+    paddingTop: 16,
+    paddingHorizontal: 20,
+    flexDirection: "row",
+    gap: 12,
+    borderTopWidth: 1,
+    borderTopColor: NeutralColors.slate200,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: -2 },
+    shadowOpacity: 0.05,
+    shadowRadius: 4,
+    elevation: 3,
+  },
+  mapModalApplyBtn: {
+    flex: 1,
+  },
+  mapModalApplyBtnGradient: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    height: 48,
+    borderRadius: 12,
+    gap: 8,
+    shadowColor: BrandColors.navy,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.25,
+    shadowRadius: 8,
+    elevation: 4,
+  },
+  mapModalApplyBtnText: {
+    color: NeutralColors.white,
+    fontSize: 15,
+    fontWeight: "600",
+  },
+  mapModalCancelBtn: {
+    flex: 1,
+    backgroundColor: NeutralColors.slate100,
+    height: 48,
+    borderRadius: 12,
+    justifyContent: "center",
+    alignItems: "center",
+    borderWidth: 1,
+    borderColor: NeutralColors.slate200,
+  },
+  mapModalCancelBtnText: {
+    color: NeutralColors.slate600,
+    fontSize: 15,
+    fontWeight: "600",
   },
 });

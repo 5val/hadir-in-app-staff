@@ -9,7 +9,12 @@
     "userInterfaceStyle": "automatic",
     "newArchEnabled": true,
     "ios": {
-      "supportsTablet": true
+      "supportsTablet": true,
+      "config": {
+        "googleMaps": {
+          "apiKey": "AIzaSyCrafjahZxZsTsdw_BVgBrNQW8IuWFRDdw"
+        }
+      }
     },
     "android": {
       "package": "com.myapp",
@@ -20,7 +25,12 @@
         "monochromeImage": "./assets/images/android-icon-monochrome.png"
       },
       "edgeToEdgeEnabled": true,
-      "predictiveBackGestureEnabled": false
+      "predictiveBackGestureEnabled": false,
+      "config": {
+        "googleMaps": {
+          "apiKey": "AIzaSyCrafjahZxZsTsdw_BVgBrNQW8IuWFRDdw"
+        }
+      }
     },
     "web": {
       "output": "static",
@@ -44,6 +54,12 @@
     "experiments": {
       "typedRoutes": true,
       "reactCompiler": true
+    },
+    "extra": {
+      "router": {},
+      "eas": {
+        "projectId": "a422dae1-012a-4d7b-a2c1-51bb3710a3b5"
+      }
     }
   }
 }
