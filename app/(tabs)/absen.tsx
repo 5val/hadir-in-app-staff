@@ -20,6 +20,7 @@ import {
   TouchableOpacity,
   View,
 } from "react-native";
+import uploadFileToDrive from "../utils/drive";
 
 const { width } = Dimensions.get("window");
 
@@ -175,6 +176,15 @@ export default function AttendanceScreen() {
       }
 
       const asset = await MediaLibrary.createAssetAsync(photoUri);
+
+      // Try upload to Google Drive (if configured). Non-fatal: show user if it fails.
+      try {
+        const filename = `absensi_${Date.now()}.jpg`;
+        await uploadFileToDrive(photoUri, filename);
+      } catch (uploadErr: any) {
+        console.warn("Drive upload failed", uploadErr);
+        Alert.alert("Upload Drive Gagal", uploadErr.message || String(uploadErr));
+      }
 
       const albumName = "HadirIn_Absen";
       const album = await MediaLibrary.getAlbumAsync(albumName);
