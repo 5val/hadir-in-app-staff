@@ -9,16 +9,16 @@ import { useLocalSearchParams, useRouter } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import React, { useEffect, useRef, useState } from "react";
 import {
-  ActivityIndicator,
-  Alert,
-  Dimensions,
-  Image,
-  Platform,
-  ScrollView,
-  StyleSheet,
-  Text,
-  TouchableOpacity,
-  View,
+    ActivityIndicator,
+    Alert,
+    Dimensions,
+    Image,
+    Platform,
+    ScrollView,
+    StyleSheet,
+    Text,
+    TouchableOpacity,
+    View,
 } from "react-native";
 
 const { width } = Dimensions.get("window");
@@ -160,9 +160,10 @@ export default function AttendanceScreen() {
     );
 
     if (distance > targetRadius) {
+      const distanceFromArea = Math.round(distance - targetRadius);
       Alert.alert(
         "Di Luar Jangkauan ❌",
-        `Jarak Anda ${Math.round(distance)}m dari kantor. Maksimal radius adalah ${targetRadius}m.`,
+        `Anda berjarak ${distanceFromArea} meter dari area absen.`,
       );
       return;
     }
@@ -278,7 +279,12 @@ export default function AttendanceScreen() {
     let distance = 0;
     let isWithinRadius = false;
 
-    if (location && !isNaN(targetLat) && !isNaN(targetLng) && !isNaN(targetRadius)) {
+    if (
+      location &&
+      !isNaN(targetLat) &&
+      !isNaN(targetLng) &&
+      !isNaN(targetRadius)
+    ) {
       distance = calculateDistance(
         location.latitude,
         location.longitude,
@@ -368,31 +374,50 @@ export default function AttendanceScreen() {
           </View>
 
           {/* Radius Status Card */}
-          <View style={[
-            styles.radiusStatusCard,
-            { backgroundColor: isWithinRadius ? SemanticColors.successBg : SemanticColors.errorBg }
-          ]}>
+          <View
+            style={[
+              styles.radiusStatusCard,
+              {
+                backgroundColor: isWithinRadius
+                  ? SemanticColors.successBg
+                  : SemanticColors.errorBg,
+              },
+            ]}
+          >
             <View style={styles.radiusStatusHeader}>
               <Ionicons
                 name={isWithinRadius ? "checkmark-circle" : "close-circle"}
                 size={24}
-                color={isWithinRadius ? SemanticColors.success : SemanticColors.error}
+                color={
+                  isWithinRadius ? SemanticColors.success : SemanticColors.error
+                }
               />
-              <Text style={[
-                styles.radiusStatusTitle,
-                { color: isWithinRadius ? SemanticColors.success : SemanticColors.error }
-              ]}>
+              <Text
+                style={[
+                  styles.radiusStatusTitle,
+                  {
+                    color: isWithinRadius
+                      ? SemanticColors.success
+                      : SemanticColors.error,
+                  },
+                ]}
+              >
                 {isWithinRadius ? "Dalam Radius Absen" : "Di Luar Radius Absen"}
               </Text>
             </View>
-            <Text style={[
-              styles.radiusStatusText,
-              { color: isWithinRadius ? SemanticColors.success : SemanticColors.error }
-            ]}>
+            <Text
+              style={[
+                styles.radiusStatusText,
+                {
+                  color: isWithinRadius
+                    ? SemanticColors.success
+                    : SemanticColors.error,
+                },
+              ]}
+            >
               {isWithinRadius
-                ? `Anda berjarak ${Math.round(distance)} meter dari titik absen.`
-                : `Anda berjarak ${Math.round(distance)} meter dari titik absen. Maksimal radius: ${targetRadius} meter.`
-              }
+                ? `Anda berada dalam area absen (${Math.round(distance)} meter dari titik pusat, radius ${targetRadius} meter).`
+                : `Anda berjarak ${Math.round(distance - targetRadius)} meter dari area absen.`}
             </Text>
             {!isWithinRadius && (
               <Text style={styles.radiusStatusHint}>
@@ -426,16 +451,20 @@ export default function AttendanceScreen() {
                 {isWithinRadius && (
                   <TouchableOpacity
                     activeOpacity={0.8}
-                    onPress={() => {
-                      // Tombol tidak melakukan apa-apa (placeholder)
-                    }}
+                    onPress={handleSaveAttendance}
                   >
                     <LinearGradient
                       colors={[SemanticColors.success, "#16A34A"]}
                       style={styles.confirmButton}
                     >
-                      <Ionicons name="checkmark-circle" size={20} color="white" />
-                      <Text style={styles.confirmButtonText}>Simpan Absensi</Text>
+                      <Ionicons
+                        name="checkmark-circle"
+                        size={20}
+                        color="white"
+                      />
+                      <Text style={styles.confirmButtonText}>
+                        Simpan Absensi
+                      </Text>
                     </LinearGradient>
                   </TouchableOpacity>
                 )}

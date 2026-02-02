@@ -1,30 +1,32 @@
-import React, { useState, useRef, useEffect } from 'react';
+import { BrandColors, NeutralColors, SemanticColors } from "@/constants/theme";
+import { Ionicons } from "@expo/vector-icons";
+import { LinearGradient } from "expo-linear-gradient";
+import { useRouter } from "expo-router";
+import { StatusBar } from "expo-status-bar";
+import React, { useEffect, useRef, useState } from "react";
 import {
-  View,
-  Text,
-  TextInput,
-  TouchableOpacity,
-  StyleSheet,
+  ActivityIndicator,
+  Animated,
   KeyboardAvoidingView,
   Platform,
   ScrollView,
-  Animated,
-  ActivityIndicator,
-} from 'react-native';
-import { StatusBar } from 'expo-status-bar';
-import { useRouter } from 'expo-router';
-import { LinearGradient } from 'expo-linear-gradient';
-import { Ionicons } from '@expo/vector-icons';
-import { BrandColors, NeutralColors, SemanticColors } from '@/constants/theme';
+  StyleSheet,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  View,
+} from "react-native";
 
 export default function LoginScreen() {
   const router = useRouter();
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
-  const [errors, setErrors] = useState<{ email?: string; password?: string }>({});
-  
+  const [errors, setErrors] = useState<{ email?: string; password?: string }>(
+    {},
+  );
+
   // Animation values
   const fadeAnim = useRef(new Animated.Value(0)).current;
   const slideAnim = useRef(new Animated.Value(50)).current;
@@ -52,51 +54,51 @@ export default function LoginScreen() {
 
   const validateForm = () => {
     const newErrors: { email?: string; password?: string } = {};
-    
+
     if (!email.trim()) {
-      newErrors.email = 'Email atau nama wajib diisi';
+      newErrors.email = "Email atau nama wajib diisi";
     }
-    
+
     if (!password.trim()) {
-      newErrors.password = 'Password wajib diisi';
+      newErrors.password = "Password wajib diisi";
     } else if (password.length < 4) {
-      newErrors.password = 'Password minimal 4 karakter';
+      newErrors.password = "Password minimal 4 karakter";
     }
-    
+
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
   };
 
   const handleLogin = async () => {
     if (!validateForm()) return;
-    
+
     setIsLoading(true);
-    
+
     // Simulasi login dengan delay
     setTimeout(() => {
-      console.log('Login attempt:', { email, password });
+      console.log("Login attempt:", { email, password });
       setIsLoading(false);
       // Navigate ke home/tabs setelah login berhasil
-      router.replace('/(tabs)');
+      router.replace("/(tabs)");
     }, 1500);
   };
 
   return (
     <View style={styles.container}>
       <StatusBar style="light" />
-      
+
       {/* Background Gradient */}
       <LinearGradient
-        colors={['#F8FAFC', '#F1F5F9', '#E0F7FA']}
+        colors={["#F8FAFC", "#F1F5F9", "#E0F7FA"]}
         style={styles.backgroundGradient}
       />
-      
+
       {/* Decorative Circles */}
       <View style={styles.decorativeCircle1} />
       <View style={styles.decorativeCircle2} />
-      
+
       <KeyboardAvoidingView
-        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        behavior={Platform.OS === "ios" ? "padding" : "height"}
         style={styles.keyboardView}
       >
         <ScrollView
@@ -109,10 +111,7 @@ export default function LoginScreen() {
               styles.content,
               {
                 opacity: fadeAnim,
-                transform: [
-                  { translateY: slideAnim },
-                  { scale: scaleAnim },
-                ],
+                transform: [{ translateY: slideAnim }, { scale: scaleAnim }],
               },
             ]}
           >
@@ -136,7 +135,8 @@ export default function LoginScreen() {
               <View style={styles.cardHeader}>
                 <Text style={styles.welcomeText}>Selamat Datang</Text>
                 <Text style={styles.subText}>
-                  Masuk ke akun <Text style={styles.brandText}>Hadir-In</Text> Anda
+                  Masuk ke akun <Text style={styles.brandText}>Hadir-In</Text>{" "}
+                  Anda
                 </Text>
               </View>
 
@@ -145,14 +145,20 @@ export default function LoginScreen() {
                 {/* Email/Nama Input */}
                 <View style={styles.inputGroup}>
                   <Text style={styles.label}>Nama atau Email</Text>
-                  <View style={[
-                    styles.inputWrapper,
-                    errors.email && styles.inputError,
-                  ]}>
-                    <Ionicons 
-                      name="mail-outline" 
-                      size={20} 
-                      color={errors.email ? SemanticColors.error : NeutralColors.slate400} 
+                  <View
+                    style={[
+                      styles.inputWrapper,
+                      errors.email && styles.inputError,
+                    ]}
+                  >
+                    <Ionicons
+                      name="mail-outline"
+                      size={20}
+                      color={
+                        errors.email
+                          ? SemanticColors.error
+                          : NeutralColors.slate400
+                      }
                       style={styles.inputIcon}
                     />
                     <TextInput
@@ -162,7 +168,8 @@ export default function LoginScreen() {
                       value={email}
                       onChangeText={(text) => {
                         setEmail(text);
-                        if (errors.email) setErrors({ ...errors, email: undefined });
+                        if (errors.email)
+                          setErrors({ ...errors, email: undefined });
                       }}
                       autoCapitalize="none"
                       keyboardType="email-address"
@@ -176,14 +183,20 @@ export default function LoginScreen() {
                 {/* Password Input */}
                 <View style={styles.inputGroup}>
                   <Text style={styles.label}>Password</Text>
-                  <View style={[
-                    styles.inputWrapper,
-                    errors.password && styles.inputError,
-                  ]}>
-                    <Ionicons 
-                      name="lock-closed-outline" 
-                      size={20} 
-                      color={errors.password ? SemanticColors.error : NeutralColors.slate400} 
+                  <View
+                    style={[
+                      styles.inputWrapper,
+                      errors.password && styles.inputError,
+                    ]}
+                  >
+                    <Ionicons
+                      name="lock-closed-outline"
+                      size={20}
+                      color={
+                        errors.password
+                          ? SemanticColors.error
+                          : NeutralColors.slate400
+                      }
                       style={styles.inputIcon}
                     />
                     <TextInput
@@ -193,18 +206,19 @@ export default function LoginScreen() {
                       value={password}
                       onChangeText={(text) => {
                         setPassword(text);
-                        if (errors.password) setErrors({ ...errors, password: undefined });
+                        if (errors.password)
+                          setErrors({ ...errors, password: undefined });
                       }}
                       secureTextEntry={!showPassword}
                     />
-                    <TouchableOpacity 
+                    <TouchableOpacity
                       onPress={() => setShowPassword(!showPassword)}
                       style={styles.eyeIcon}
                     >
-                      <Ionicons 
-                        name={showPassword ? "eye-outline" : "eye-off-outline"} 
-                        size={20} 
-                        color={NeutralColors.slate400} 
+                      <Ionicons
+                        name={showPassword ? "eye-outline" : "eye-off-outline"}
+                        size={20}
+                        color={NeutralColors.slate400}
                       />
                     </TouchableOpacity>
                   </View>
@@ -221,7 +235,10 @@ export default function LoginScreen() {
                 >
                   <LinearGradient
                     colors={[BrandColors.navy, BrandColors.navyDark]}
-                    style={[styles.loginButton, isLoading && styles.loginButtonDisabled]}
+                    style={[
+                      styles.loginButton,
+                      isLoading && styles.loginButtonDisabled,
+                    ]}
                     start={{ x: 0, y: 0 }}
                     end={{ x: 1, y: 0 }}
                   >
@@ -229,7 +246,11 @@ export default function LoginScreen() {
                       <ActivityIndicator size="small" color="white" />
                     ) : (
                       <>
-                        <Ionicons name="log-in-outline" size={20} color="white" />
+                        <Ionicons
+                          name="log-in-outline"
+                          size={20}
+                          color="white"
+                        />
                         <Text style={styles.loginButtonText}>Masuk</Text>
                       </>
                     )}
@@ -245,11 +266,16 @@ export default function LoginScreen() {
               {/* Demo Info Box */}
               <View style={styles.demoBox}>
                 <View style={styles.demoHeader}>
-                  <Ionicons name="bulb-outline" size={16} color={BrandColors.cyan} />
+                  <Ionicons
+                    name="bulb-outline"
+                    size={16}
+                    color={BrandColors.cyan}
+                  />
                   <Text style={styles.demoTitle}>Demo Login</Text>
                 </View>
                 <Text style={styles.demoText}>
-                  Gunakan email dan password apapun untuk demo. Data akan direset saat aplikasi dimuat ulang.
+                  Gunakan email dan password apapun untuk demo. Data akan
+                  direset saat aplikasi dimuat ulang.
                 </Text>
               </View>
             </View>
@@ -271,14 +297,14 @@ const styles = StyleSheet.create({
     backgroundColor: NeutralColors.white,
   },
   backgroundGradient: {
-    position: 'absolute',
+    position: "absolute",
     top: 0,
     left: 0,
     right: 0,
     bottom: 0,
   },
   decorativeCircle1: {
-    position: 'absolute',
+    position: "absolute",
     top: -100,
     right: -100,
     width: 250,
@@ -287,7 +313,7 @@ const styles = StyleSheet.create({
     backgroundColor: `${BrandColors.cyan}15`,
   },
   decorativeCircle2: {
-    position: 'absolute',
+    position: "absolute",
     bottom: -80,
     left: -80,
     width: 200,
@@ -300,25 +326,25 @@ const styles = StyleSheet.create({
   },
   scrollContent: {
     flexGrow: 1,
-    justifyContent: 'center',
+    justifyContent: "center",
     paddingHorizontal: 24,
     paddingVertical: 40,
   },
   content: {
-    width: '100%',
+    width: "100%",
     maxWidth: 400,
-    alignSelf: 'center',
+    alignSelf: "center",
   },
   logoSection: {
-    alignItems: 'center',
+    alignItems: "center",
     marginBottom: 32,
   },
   logoContainer: {
     width: 80,
     height: 80,
     borderRadius: 24,
-    justifyContent: 'center',
-    alignItems: 'center',
+    justifyContent: "center",
+    alignItems: "center",
     shadowColor: BrandColors.navy,
     shadowOffset: { width: 0, height: 8 },
     shadowOpacity: 0.3,
@@ -327,7 +353,7 @@ const styles = StyleSheet.create({
   },
   appName: {
     fontSize: 28,
-    fontWeight: 'bold',
+    fontWeight: "bold",
     color: NeutralColors.slate900,
     marginTop: 16,
   },
@@ -337,10 +363,10 @@ const styles = StyleSheet.create({
     marginTop: 4,
   },
   loginCard: {
-    backgroundColor: 'rgba(255, 255, 255, 0.9)',
+    backgroundColor: "rgba(255, 255, 255, 0.9)",
     borderRadius: 24,
     padding: 24,
-    shadowColor: '#000',
+    shadowColor: "#000",
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.1,
     shadowRadius: 24,
@@ -349,12 +375,12 @@ const styles = StyleSheet.create({
     borderColor: `${NeutralColors.slate200}50`,
   },
   cardHeader: {
-    alignItems: 'center',
+    alignItems: "center",
     marginBottom: 28,
   },
   welcomeText: {
     fontSize: 24,
-    fontWeight: 'bold',
+    fontWeight: "bold",
     color: NeutralColors.slate900,
     marginBottom: 8,
   },
@@ -364,7 +390,7 @@ const styles = StyleSheet.create({
   },
   brandText: {
     color: BrandColors.navy,
-    fontWeight: '600',
+    fontWeight: "600",
   },
   form: {
     gap: 20,
@@ -374,12 +400,12 @@ const styles = StyleSheet.create({
   },
   label: {
     fontSize: 14,
-    fontWeight: '600',
+    fontWeight: "600",
     color: NeutralColors.slate700,
   },
   inputWrapper: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
     backgroundColor: NeutralColors.white,
     borderWidth: 1,
     borderColor: NeutralColors.slate300,
@@ -398,7 +424,7 @@ const styles = StyleSheet.create({
     flex: 1,
     fontSize: 16,
     color: NeutralColors.slate900,
-    height: '100%',
+    height: "100%",
   },
   eyeIcon: {
     padding: 4,
@@ -409,9 +435,9 @@ const styles = StyleSheet.create({
     marginTop: 4,
   },
   loginButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
     height: 52,
     borderRadius: 12,
     gap: 8,
@@ -427,13 +453,13 @@ const styles = StyleSheet.create({
   },
   loginButtonText: {
     fontSize: 16,
-    fontWeight: '600',
+    fontWeight: "600",
     color: NeutralColors.white,
   },
   helperText: {
     fontSize: 13,
     color: NeutralColors.slate500,
-    textAlign: 'center',
+    textAlign: "center",
     marginTop: 8,
   },
   demoBox: {
@@ -445,14 +471,14 @@ const styles = StyleSheet.create({
     marginTop: 20,
   },
   demoHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
     gap: 6,
     marginBottom: 6,
   },
   demoTitle: {
     fontSize: 13,
-    fontWeight: '600',
+    fontWeight: "600",
     color: BrandColors.navy,
   },
   demoText: {
@@ -463,7 +489,7 @@ const styles = StyleSheet.create({
   footerText: {
     fontSize: 12,
     color: NeutralColors.slate500,
-    textAlign: 'center',
+    textAlign: "center",
     marginTop: 24,
   },
 });
